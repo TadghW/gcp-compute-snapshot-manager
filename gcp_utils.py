@@ -79,7 +79,7 @@ def create_snapshot_blocking(snapshots_client, zone, instance, disk_name, disk_u
         #There are a number of ways you can do this - Google recommends using google.api_core.extended_operation's operation.result() for async await
         #I would tend to use a GlobalOperationsClient to check status but I don't have the permissions to do so with these credentials
         while True:
-            status = check_snapshot_status(snapshots_client, project_id, snapshot.name)
+            status = check_snapshot_status(snapshots_client, snapshot.name)
             match status:
                 case 'CREATING':
                     print(f"{datetime.now(timezone.utc)} INFO - Snapshot is being created...")
@@ -107,7 +107,7 @@ def remove_snapshot_blocking(snapshot_client, snapshot_name):
         snapshot_client.delete(project=project_id, snapshot=snapshot_name)
         while True:
             try:
-                status = check_snapshot_status(snapshot_client, project_id, snapshot_name)
+                status = check_snapshot_status(snapshot_client, snapshot_name)
                 match status:
                     case 'DELETING':
                         print(f"{datetime.now(timezone.utc)} INFO - Snapshot is being deleted...")

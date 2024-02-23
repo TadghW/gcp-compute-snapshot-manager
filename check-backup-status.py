@@ -7,7 +7,7 @@ from tabulate import tabulate
 def list_instances(zone):
     
     instances_client, snapshots_client = get_compute_service_clients()
-    instances = get_instances(instances_client, project_id, zone)
+    instances = get_instances(instances_client, zone)
 
     #I used tabulate because I'm familiar with it, would love to know what you used for your formatting though, looks great
     headers = ["Instance", "Backup Enabled", "Disk", "Latest Backup"]
@@ -18,8 +18,8 @@ def list_instances(zone):
         first_disk_url = instance.disks[0].source if instance.disks else 'No disk attached'
         has_backup_label = instance.labels.get(backup_label_key) == backup_label_value
         backup_status = "Yes" if has_backup_label else "No"
-        last_snapshot_date = get_last_snapshot_date(snapshots_client, project_id, first_disk_url) if first_disk_url != 'No disk attached' else 'No disk attached'
-        last_snapshot_date = last_snapshot_date if last_snapshot_date is not None else 'No backup found'
+        last_snapshot_date = get_last_snapshot_date(snapshots_client, first_disk_url) if first_disk_url != 'No disk attached' else 'No disk attached'
+        last_snapshot_date = last_snapshot_date if last_snapshot_date is not None else 'No stored backup'
         row = [instance_name, backup_status, first_disk_url.split('/')[-1] if first_disk_url != 'No disk attached' else first_disk_url, last_snapshot_date]
         table.append(row)
     

@@ -11,17 +11,16 @@ def remove_old_snapshots(zone):
     instances_client, snapshots_client = get_compute_service_clients()
     
     instances = get_instances(instances_client, zone)
-    print(f"{datetime.now(timezone.utc)} INFO - Found {cardinality.count(instances)} instances in {project_id} >> {zone}.")
-
+    
     for instance in instances:
         first_disk_url = instance.disks[0].source if instance.disks else None
         first_disk_name = first_disk_url.split('/')[-1] if first_disk_url else None
         if first_disk_url:
-            out_of_date_snapshots = get_out_of_date_snapshots(snapshots_client, project_id, first_disk_url)
+            out_of_date_snapshots = get_out_of_date_snapshots(snapshots_client, first_disk_url)
             if out_of_date_snapshots:
                 print(f"{datetime.now(timezone.utc)} INFO - Instance: {instance.name} >> Disk: {first_disk_name} has out of date snapshots.")
                 for snapshot in out_of_date_snapshots:
-                    remove_snapshot_blocking(snapshots_client, project_id, snapshot.name)
+                    remove_snapshot_blocking(snapshots_client, snapshot.name)
             else:
                 print(f"{datetime.now(timezone.utc)} INFO - Found no out-of-date snapshots for {instance.name} >> {first_disk_name}.")
         else:
