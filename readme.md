@@ -12,9 +12,19 @@ Typically you might want to deploy this logic in the cloud so you could run the 
 
  - **Clone the repository** with `git clone https://github.com/TadghW/gcp-compute-manager.git`
  - **Create a virtual environment** at the root of the cloned folder `python -m venv env_name` OR `python3 -m venv env_name` depending on your operating system and python installation
- - **Activate the virtual environment**. 
+ - Activate the virtual environment. 
 	 - On macOS and Linux you can use `source env_name/bin/activate`
 	 - On Windows you can use `.\env_name/Scripts/activate.bat` if you're using the command prompt or terminal, or `.\env_name/Scripts/activate.ps1` if you're using a PowerShell terminal.
 - **Install the project requirements** in the virtual environment using `pip install -r requirements.txt`
 - **Store your user credentials** JSON in a folder at the project's root
 - **Update the settings in `settings.py`** to reflect your own credentials file, project id, and backup label key and value
+
+#### Usage:
+
+- Your project id, credentials, and how you specify which instances require backing up are set in settings.py, when you use any of the three functional scripts:
+	- `check-backup-status.py`
+	- `remove-old-snapshots.py`
+	- `backup-virutal-machines.py`
+
+	You will need to to provide the `zone` you want to scan for instances within as an argument. For example:
+	`python backup-virtual-machines.py europe-west4-a`
