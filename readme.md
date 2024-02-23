@@ -12,7 +12,7 @@ Typically you might want to deploy this logic in the cloud so you could run the 
 
  - **Clone the repository** with `git clone https://github.com/TadghW/gcp-compute-manager.git`
  - **Create a virtual environment** at the root of the cloned folder `python -m venv env_name` OR `python3 -m venv env_name` depending on your operating system and python installation
- - Activate the virtual environment. 
+ - **Activate the virtual environment**. 
 	 - On macOS and Linux you can use `source env_name/bin/activate`
 	 - On Windows you can use `.\env_name/Scripts/activate.bat` if you're using the command prompt or terminal, or `.\env_name/Scripts/activate.ps1` if you're using a PowerShell terminal.
 - **Install the project requirements** in the virtual environment using `pip install -r requirements.txt`
