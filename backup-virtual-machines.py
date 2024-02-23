@@ -1,18 +1,16 @@
 import sys
 from gcp_utils import get_compute_service_clients, get_instances, get_last_snapshot_date, create_snapshot_blocking
+from settings import project_id, backup_label_key, backup_label_value
 from datetime import datetime, timedelta, timezone
 
-#Will cycle through instances in project >> zone looking for instances with 'backup=true'. If last backup is older than a day it'll create a new snapshot
-#of the first disk in the instance.
-def backup_instances(zone, project_id='xcc-tadgh-gcp', label_key='backup', label_value='true'):
+def backup_instances(zone):
     
     print(f"{datetime.now(timezone.utc)} INFO - Starting backup process...")
-    path_to_credentials = "credentials/xcc-tadgh-gcp.json"
-    instances_client, snapshots_client = get_compute_service_clients(path_to_credentials)
+    instances_client, snapshots_client = get_compute_service_clients()
     instances = get_instances(instances_client, project_id, zone)
 
     for instance in instances:
-        if instance.labels.get(label_key) == label_value:
+        if instance.labels.get(backup_label_key) == backup_label_value:
             first_disk_url = instance.disks[0].source if instance.disks else None
             first_disk_name = first_disk_url.split('/')[-1] if first_disk_url else None
             if first_disk_url:

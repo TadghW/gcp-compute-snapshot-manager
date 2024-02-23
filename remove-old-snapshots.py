@@ -1,17 +1,16 @@
 import sys
 from google.cloud import compute_v1
 from datetime import datetime, timezone
-from gcp_utils import get_compute_service_clients, get_out_of_date_snapshots, remove_snapshot_blocking
+from gcp_utils import get_compute_service_clients, get_instances, get_out_of_date_snapshots, remove_snapshot_blocking
+from settings import project_id
 import cardinality
 
-def remove_old_snapshots(zone, project_id='xcc-tadgh-gcp'):
+def remove_old_snapshots(zone):
     
     print(f"{datetime.now(timezone.utc)} INFO - Starting backup process...")
-    path_to_credentials = "credentials/xcc-tadgh-gcp.json"
-    instances_client, snapshots_client = get_compute_service_clients(path_to_credentials)
+    instances_client, snapshots_client = get_compute_service_clients()
     
-    request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
-    instances = instances_client.list(request=request)
+    instances = get_instances(instances_client, zone)
     print(f"{datetime.now(timezone.utc)} INFO - Found {cardinality.count(instances)} instances in {project_id} >> {zone}.")
 
     for instance in instances:
