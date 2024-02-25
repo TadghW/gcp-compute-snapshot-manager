@@ -1,8 +1,10 @@
 import sys
+import logging
 from gcp_utils import get_compute_service_clients, get_instances, get_last_snapshot_date
 from settings import project_id, backup_label_key, backup_label_value
-from datetime import datetime, timezone
 from tabulate import tabulate
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def list_instances(zone):
     
@@ -23,7 +25,7 @@ def list_instances(zone):
         row = [instance_name, backup_status, first_disk_url.split('/')[-1] if first_disk_url != 'No disk attached' else first_disk_url, last_snapshot_date]
         table.append(row)
     
-    print(f"{datetime.now(timezone.utc)} INFO - Listing compute instances in {project_id}, {zone}:")
+    logging.info(f"Listing compute instances in {project_id}, {zone}:")
     print(tabulate(table, headers, tablefmt="grid"))
 
 if __name__ == "__main__":

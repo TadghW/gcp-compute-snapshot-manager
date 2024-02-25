@@ -5,6 +5,9 @@ from google.api_core.exceptions import GoogleAPICallError, RetryError, NotFound
 from settings import project_id, path_to_credentials
 import time
 import cardinality
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_compute_service_clients():
     
@@ -24,7 +27,7 @@ def get_compute_service_clients():
 def get_instances(instances_client, zone):
     request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
     instances = instances_client.list(request=request)
-    print(f"{datetime.now(timezone.utc)} INFO - Found {cardinality.count(instances)} instances in {project_id} >> {zone}.")
+    logging.info(f"Found {cardinality.count(instances)} instances in {project_id} >> {zone}.")
     return instances
 
 def check_snapshot_status(snapshots_client, snapshot_name):
@@ -74,7 +77,7 @@ def create_snapshot_blocking(snapshots_client, zone, instance, disk_name, disk_u
     
     try:
         snapshots_client.insert(project=project_id, snapshot_resource=snapshot)
-        print(f"{datetime.now(timezone.utc)} INFO - Requested snapshot creation for {project_id} >> {zone} >> {instance.name} >> {disk_name}")
+        logging.info(" Requested snapshot creation for {project_id} >> {zone} >> {instance.name} >> {disk_name}")
 
         #There are a number of ways you can do this - Google recommends using google.api_core.extended_operation's operation.result() for async await
         #I would tend to use a GlobalOperationsClient to check status but I don't have the permissions to do so with these credentials
@@ -82,27 +85,27 @@ def create_snapshot_blocking(snapshots_client, zone, instance, disk_name, disk_u
             status = check_snapshot_status(snapshots_client, snapshot.name)
             match status:
                 case 'CREATING':
-                    print(f"{datetime.now(timezone.utc)} INFO - Snapshot is being created...")
+                    logging.info("Snapshot is being created...")
                 case 'UPLOADING':
-                    print(f"{datetime.now(timezone.utc)} INFO - Snapshot is being uploaded...")
+                    logging.info("Snapshot is being uploaded...")
                 case 'READY':
-                    print(f"{datetime.now(timezone.utc)} SUCCESS - Snapshot created.")
+                    logging.info("Snapshot created.")
                     return
                 case 'FAILED':
-                    print(f"{datetime.now(timezone.utc)} FAILED - Snapshot creation failed.")
+                    logging.error("Snapshot creation failed.")
                     errors = check_snapshot_error(snapshots_client, project_id, snapshot.name)
                     for error in errors:
-                        print(f"{datetime.now(timezone.utc)} ERROR MESSAGE - {error}")
+                        logging.error(f"{error}")
             time.sleep(4)
     except (GoogleAPICallError, RetryError) as e:
-            print(f"{datetime.now(timezone.utc)} ERROR - Failed to create snapshot: {snapshot.name}: {e}")
+            logging.error(f"Failed to create snapshot: {snapshot.name}: {e}")
 
 def remove_snapshot_blocking(snapshot_client, snapshot_name):
     #The logic around deciding if a snapshot has been deleted successfully here is a bit imprecise. I would prefer
     #to use an operations client here to observe the deletion operation rather than just polling for if the resource
     #can be found. Iirc 'DELETED' is a valid case, but I'm not sure how long it actually lasts for or how to access
     #a snapshot in that state.
-    print(f"{datetime.now(timezone.utc)} INFO - Deleting snapshot {snapshot_name}...")
+    logging.info(" Deleting snapshot {snapshot_name}...")
     try:
         snapshot_client.delete(project=project_id, snapshot=snapshot_name)
         while True:
@@ -110,14 +113,14 @@ def remove_snapshot_blocking(snapshot_client, snapshot_name):
                 status = check_snapshot_status(snapshot_client, snapshot_name)
                 match status:
                     case 'DELETING':
-                        print(f"{datetime.now(timezone.utc)} INFO - Snapshot is being deleted...")
+                        logging.info("Snapshot is being deleted...")
                     case 'DELETED':
-                        print(f"{datetime.now(timezone.utc)} SUCCESS - Snapshot deleted.")
+                        logging.info("Snapshot deleted.")
                         break
             except NotFound: 
-                print(f"{datetime.now(timezone.utc)} SUCCESS - Snapshot {snapshot_name} deleted.")
+                logging.info(f"Snapshot {snapshot_name} deleted.")
                 break  
             time.sleep(2)
     except (GoogleAPICallError, RetryError) as e:
-        print(f"{datetime.now(timezone.utc)} ERROR - Snapshot deletion for {snapshot_name} failed.")
-        print(f"{datetime.now(timezone.utc)} ERROR MESSAGE - {e}.")
+        logging.error(f"Snapshot deletion for {snapshot_name} failed.")
+        logging.error(f"{e}")
