@@ -67,7 +67,7 @@ def get_out_of_date_snapshots(snapshots_client, disk_url):
                 out_of_date.append(snapshot)
     return out_of_date
 
-def create_snapshot_blocking(snapshots_client, zone, instance, disk_name, disk_url):
+def create_snapshot(snapshots_client, zone, instance, disk_name, disk_url):
 
     request_time = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     snapshot = compute_v1.Snapshot()
@@ -77,50 +77,52 @@ def create_snapshot_blocking(snapshots_client, zone, instance, disk_name, disk_u
     
     try:
         snapshots_client.insert(project=project_id, snapshot_resource=snapshot)
-        logging.info(" Requested snapshot creation for {project_id} >> {zone} >> {instance.name} >> {disk_name}")
-
-        #There are a number of ways you can do this - Google recommends using google.api_core.extended_operation's operation.result() for async await
-        #I would tend to use a GlobalOperationsClient to check status but I don't have the permissions to do so with these credentials
-        while True:
-            status = check_snapshot_status(snapshots_client, snapshot.name)
-            match status:
-                case 'CREATING':
-                    logging.info("Snapshot is being created...")
-                case 'UPLOADING':
-                    logging.info("Snapshot is being uploaded...")
-                case 'READY':
-                    logging.info("Snapshot created.")
-                    return
-                case 'FAILED':
-                    logging.error("Snapshot creation failed.")
-                    errors = check_snapshot_error(snapshots_client, project_id, snapshot.name)
-                    for error in errors:
-                        logging.error(f"{error}")
-            time.sleep(4)
+        logging.info(f"Requested snapshot creation for {project_id} >> {zone} >> {instance.name} >> {disk_name}")
     except (GoogleAPICallError, RetryError) as e:
-            logging.error(f"Failed to create snapshot: {snapshot.name}: {e}")
+        logging.error(f"Failed to create snapshot: {snapshot.name}: {e}")
 
-def remove_snapshot_blocking(snapshot_client, snapshot_name):
+    #There are a number of ways you can do this - Google recommends using google.api_core.extended_operation's operation.result() for async await
+    #I would tend to use a GlobalOperationsClient to check status but I don't have the permissions to do so with these credentials
+    
+    while True:
+        status = check_snapshot_status(snapshots_client, snapshot.name)
+        match status:
+            case 'CREATING':
+                logging.info(f"Snapshot {snapshot.name} is being created...")
+            case 'UPLOADING':
+                logging.info(f"Snapshot {snapshot.name} is being uploaded...")
+            case 'READY':
+                logging.info(f"Instance: {instance.name} Disk: {disk_name} has been backed up into snapshot: {snapshot.name}")
+                return
+            case 'FAILED':
+                logging.error(f"Snapshot {snapshot.name} failed.")
+                errors = check_snapshot_error(snapshots_client, project_id, snapshot.name)
+                for error in errors:
+                    logging.error(f"{error}")
+        time.sleep(4)
+        
+def remove_snapshot(snapshot_client, snapshot_name):
     #The logic around deciding if a snapshot has been deleted successfully here is a bit imprecise. I would prefer
     #to use an operations client here to observe the deletion operation rather than just polling for if the resource
     #can be found. Iirc 'DELETED' is a valid case, but I'm not sure how long it actually lasts for or how to access
     #a snapshot in that state.
-    logging.info(" Deleting snapshot {snapshot_name}...")
+    logging.info(f"Deleting snapshot {snapshot_name}...")
     try:
         snapshot_client.delete(project=project_id, snapshot=snapshot_name)
-        while True:
-            try:
-                status = check_snapshot_status(snapshot_client, snapshot_name)
-                match status:
-                    case 'DELETING':
-                        logging.info("Snapshot is being deleted...")
-                    case 'DELETED':
-                        logging.info("Snapshot deleted.")
-                        break
-            except NotFound: 
-                logging.info(f"Snapshot {snapshot_name} deleted.")
-                break  
-            time.sleep(2)
     except (GoogleAPICallError, RetryError) as e:
         logging.error(f"Snapshot deletion for {snapshot_name} failed.")
         logging.error(f"{e}")
+
+    while True:
+        try:
+            status = check_snapshot_status(snapshot_client, snapshot_name)
+            match status:
+                case 'DELETING':
+                    logging.info("Snapshot is being deleted...")
+                case 'DELETED':
+                    logging.info("Snapshot deleted.")
+                    break
+        except NotFound: 
+            logging.info(f"Snapshot {snapshot_name} deleted.")
+            break  
+        time.sleep(2)

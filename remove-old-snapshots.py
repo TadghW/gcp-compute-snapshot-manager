@@ -1,7 +1,7 @@
 import sys
 import logging
-from settings import project_id
-from gcp_utils import get_compute_service_clients, get_instances, get_out_of_date_snapshots, remove_snapshot_blocking
+import threading
+from gcp_utils import get_compute_service_clients, get_instances, get_out_of_date_snapshots, remove_snapshot
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -20,14 +20,12 @@ def remove_old_snapshots(zone):
             if out_of_date_snapshots:
                 logging.info(f"Instance: {instance.name} >> Disk: {first_disk_name} has out of date snapshots.")
                 for snapshot in out_of_date_snapshots:
-                    remove_snapshot_blocking(snapshots_client, snapshot.name)
+                    deletion_thread = threading.Thread(target=remove_snapshot, args=(snapshots_client, snapshot.name))
+                    deletion_thread.start()
             else:
                 logging.info(f"Found no out-of-date snapshots for {instance.name} >> {first_disk_name}.")
         else:
             logging.info(f"No disk attached to {instance.name} >> {first_disk_name}.")
-
-
-    logging.info(f"All instances in {project_id} >> {zone} have had their old backups removed")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

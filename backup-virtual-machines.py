@@ -1,6 +1,7 @@
 import sys
 import logging
-from gcp_utils import get_compute_service_clients, get_instances, get_last_snapshot_date, create_snapshot_blocking
+import threading
+from gcp_utils import get_compute_service_clients, get_instances, get_last_snapshot_date, create_snapshot
 from settings import project_id, backup_label_key, backup_label_value
 from datetime import datetime, timedelta, timezone
 
@@ -19,16 +20,15 @@ def backup_instances(zone):
             if first_disk_url:
                 last_snapshot_date = get_last_snapshot_date(snapshots_client, first_disk_url)
                 if not last_snapshot_date or (datetime.now(timezone.utc) - last_snapshot_date) > timedelta(days=1):
-                    logging.info(f"Instace: {instance.name} >> Disk: {first_disk_name} had its last snapshot at {last_snapshot_date}.")
-                    create_snapshot_blocking(snapshots_client, zone, instance, first_disk_name, first_disk_url)
+                    logging.info(f"Instance: {instance.name} >> Disk: {first_disk_name} had its last snapshot at {last_snapshot_date}.")
+                    creation_thread = threading.Thread(target=create_snapshot, args=(snapshots_client, zone, instance, first_disk_name, first_disk_url))
+                    creation_thread.start()
                 else:
                     logging.info(f"Snapshot for {instance.name} >> {first_disk_name} is up to date.")
             else:
                 logging.info(f"No disk attached to {instance.name} >> {first_disk_name}.")
         else:
-            logging.info(f"Instance {instance.name} is not marked for backup.")
-
-    logging.info(f"All instances in {project_id} >> {zone} that have been marked for backup are backed up")
+            logging.info(f"Instance: {instance.name} is not marked for backup.")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
