@@ -1,6 +1,6 @@
 from google.oauth2 import service_account
 from google.cloud import compute_v1
-from datetime import datetime,  timezone
+from datetime import datetime, timedelta, timezone
 from google.api_core.exceptions import GoogleAPICallError, RetryError, NotFound
 from settings import project_id, path_to_credentials
 import time
@@ -59,27 +59,40 @@ def get_invalid_snapshots(snapshots_client, disk_url):
 
     query = compute_v1.ListSnapshotsRequest(project=project_id)
     snapshots = snapshots_client.list(request=query)
+    snapshots_by_day = []
     snapshots_by_week = []
     invalid = []
     
     for snapshot in snapshots:
         if snapshot.source_disk == disk_url:
-            snapshot_date = datetime.fromisoformat(snapshot.creation_timestamp.replace('Z', '+00:00'))
-            iso_week = snapshot_date.isocalendar().week
-            snapshots_by_week.append((snapshot, snapshot_date, iso_week))
+            current_datetime = datetime.now(timezone.utc)
+            snapshot_datetime = datetime.fromisoformat(snapshot.creation_timestamp.replace('Z', '+00:00'))
+            #keep one snapshot per day if in past 7 days
+            if (current_datetime - snapshot_datetime) <= timedelta(days=7):
+                iso_day = snapshot_datetime.isocalendar().weekday
+                snapshots_by_day.append((snapshot, snapshot_datetime, iso_day))
+            #keep one snapshot per week from before the past 7 days
+            elif (current_datetime - snapshot_datetime) > timedelta(days=7):           
+                iso_week = snapshot_datetime.isocalendar().week
+                snapshots_by_week.append((snapshot, snapshot_datetime, iso_week))
             
             #if (datetime.now(timezone.utc) - snapshot_date) > timedelta(seconds=1):
                 #invalid.append(snapshot)
 
     #sort snapshots by recency descending
+    snapshots_by_day = sorted(snapshots_by_day, key=lambda x: x[1], reverse=True)
     snapshots_by_week = sorted(snapshots_by_week, key=lambda x: x[1], reverse=True)
     
     #generate dict of tuples with ISO week as key and first valid tuple as value
-    valid_snapshots = {t[2]: t for t in snapshots_by_week}
+    valid_snapshots_daily = {t[2]: t for t in snapshots_by_day}
+    valid_snapshots_weekly = {t[2]: t for t in snapshots_by_week}
+
+    #concatenate to array
+    valid_snapshots = [t[0] for t in valid_snapshots_daily.values()] + [t[0] for t in valid_snapshots_weekly.values()]
     
     #if a snapshot isn't in the dict mark it for deletion
     for snapshot in snapshots:
-        if not any(snapshot in t for t in valid_snapshots): 
+        if not any(snapshot in valid_snapshots): 
             invalid.append(snapshot)
 
     return invalid
