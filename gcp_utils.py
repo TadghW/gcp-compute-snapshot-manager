@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 from google.api_core.exceptions import GoogleAPICallError, RetryError, NotFound
 from settings import project_id, path_to_credentials
 import time
-import cardinality
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,6 +26,7 @@ def get_compute_service_clients():
 def get_instances(instances_client, zone):
     request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
     instances = instances_client.list(request=request)
+    print(f"Found {len(instances)} instances")
     return instances
 
 def check_snapshot_status(snapshots_client, snapshot_name):

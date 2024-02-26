@@ -4,12 +4,13 @@ from gcp_utils import get_compute_service_clients, get_instances, get_last_snaps
 from settings import project_id, backup_label_key, backup_label_value
 from tabulate import tabulate
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s    %(levelname)s    %(message)s')
 
 def list_instances(zone):
     
     instances_client, snapshots_client = get_compute_service_clients()
     instances = get_instances(instances_client, zone)
+    logging.info("Starting backup process")
 
     #I used tabulate because I'm familiar with it, would love to know what you used for your formatting though, looks great
     headers = ["Instance", "Backup Enabled", "Disk", "Latest Backup"]
