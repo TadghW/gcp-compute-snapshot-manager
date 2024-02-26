@@ -1,6 +1,6 @@
 from google.oauth2 import service_account
 from google.cloud import compute_v1
-from datetime import datetime, timedelta, timezone
+from datetime import datetime,  timezone
 from google.api_core.exceptions import GoogleAPICallError, RetryError, NotFound
 from settings import project_id, path_to_credentials
 import time
@@ -55,17 +55,34 @@ def get_last_snapshot_date(snapshots_client, disk_url):
                 last_snapshot_date = snapshot_date
     return last_snapshot_date
 
-def get_out_of_date_snapshots(snapshots_client, disk_url):
+def get_invalid_snapshots(snapshots_client, disk_url):
 
     query = compute_v1.ListSnapshotsRequest(project=project_id)
     snapshots = snapshots_client.list(request=query)
-    out_of_date = []
+    snapshots_by_week = []
+    invalid = []
+    
     for snapshot in snapshots:
         if snapshot.source_disk == disk_url:
             snapshot_date = datetime.fromisoformat(snapshot.creation_timestamp.replace('Z', '+00:00'))
-            if (datetime.now(timezone.utc) - snapshot_date) > timedelta(seconds=1): ##CHANGE TO DAYS BEFORE SUBMISSION
-                out_of_date.append(snapshot)
-    return out_of_date
+            iso_week = snapshot_date.isocalendar().week
+            snapshots_by_week.append((snapshot, snapshot_date, iso_week))
+            
+            #if (datetime.now(timezone.utc) - snapshot_date) > timedelta(seconds=1):
+                #invalid.append(snapshot)
+
+    #sort snapshots by recency descending
+    snapshots_by_week = sorted(snapshots_by_week, key=lambda x: x[1], reverse=True)
+    
+    #generate dict of tuples with ISO week as key and first valid tuple as value
+    valid_snapshots = {t[2]: t for t in snapshots_by_week}
+    
+    #if a snapshot isn't in the dict mark it for deletion
+    for snapshot in snapshots:
+        if not any(snapshot in t for t in valid_snapshots): 
+            invalid.append(snapshot)
+
+    return invalid
 
 def create_snapshot(snapshots_client, zone, instance, disk_name, disk_url):
 

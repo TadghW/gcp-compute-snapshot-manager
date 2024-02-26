@@ -1,7 +1,7 @@
 import sys
 import logging
 import threading
-from gcp_utils import get_compute_service_clients, get_instances, get_out_of_date_snapshots, remove_snapshot
+from gcp_utils import get_compute_service_clients, get_instances, get_invalid_snapshots, remove_snapshot
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -16,7 +16,7 @@ def remove_old_snapshots(zone):
         first_disk_url = instance.disks[0].source if instance.disks else None
         first_disk_name = first_disk_url.split('/')[-1] if first_disk_url else None
         if first_disk_url:
-            out_of_date_snapshots = get_out_of_date_snapshots(snapshots_client, first_disk_url)
+            out_of_date_snapshots = get_invalid_snapshots(snapshots_client, first_disk_url)
             if out_of_date_snapshots:
                 logging.info(f"Instance: {instance.name} >> Disk: {first_disk_name} has out of date snapshots.")
                 for snapshot in out_of_date_snapshots:
