@@ -27,7 +27,6 @@ def get_compute_service_clients():
 def get_instances(instances_client, zone):
     request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
     instances = instances_client.list(request=request)
-    logging.info(f"Found {cardinality.count(instances)} instances in {project_id} >> {zone}.")
     return instances
 
 def check_snapshot_status(snapshots_client, snapshot_name):
@@ -57,43 +56,51 @@ def get_last_snapshot_date(snapshots_client, disk_url):
 
 def get_invalid_snapshots(snapshots_client, disk_url):
 
-    query = compute_v1.ListSnapshotsRequest(project=project_id)
-    snapshots = snapshots_client.list(request=query)
+    disk_name = disk_url.split('/')[-1]
+
+    #I would prefer to use a filter param here but when I use request = compute_v1.ListSnapshotsRequest(project=project_id, filter=f'sourceDisk = {disk_name}')
+    #I'm getting a 503 - Code: 6124A55B0E6DB.62507DB.DE00B541
+    
+    #For now I'm going to get around this by downloading them all and grouping in a dict
+    snapshots_by_source_disk = {}
+    
+    request = compute_v1.ListSnapshotsRequest(project=project_id)
+    for snapshot in snapshots_client.list(request=request):
+        source_disk = snapshot.source_disk
+        if source_disk not in snapshots_by_source_disk:
+            snapshots_by_source_disk[source_disk] = []
+        snapshots_by_source_disk[source_disk].append(snapshot)
+
+    snapshots = snapshots_by_source_disk.get(disk_url, False)
+
+    if not snapshots:
+        logging.info(f"No snapshots of {disk_name} found.")
+        return False
+
+    logging.info(f"{len(snapshots)} snapshot(s) of {disk_name} found.")
+    snapshots = sorted(snapshots, key=lambda x: x.creation_timestamp)  
+    
     snapshots_by_day = []
     snapshots_by_week = []
-    invalid = []
-    
-    for snapshot in snapshots:
-        if snapshot.source_disk == disk_url:
-            current_datetime = datetime.now(timezone.utc)
-            snapshot_datetime = datetime.fromisoformat(snapshot.creation_timestamp.replace('Z', '+00:00'))
-            #keep one snapshot per day if in past 7 days
-            if (current_datetime - snapshot_datetime) <= timedelta(days=7):
-                iso_day = snapshot_datetime.isocalendar().weekday
-                snapshots_by_day.append((snapshot, snapshot_datetime, iso_day))
-            #keep one snapshot per week from before the past 7 days
-            elif (current_datetime - snapshot_datetime) > timedelta(days=7):           
-                iso_week = snapshot_datetime.isocalendar().week
-                snapshots_by_week.append((snapshot, snapshot_datetime, iso_week))
-            
-            #if (datetime.now(timezone.utc) - snapshot_date) > timedelta(seconds=1):
-                #invalid.append(snapshot)
 
-    #sort snapshots by recency descending
-    snapshots_by_day = sorted(snapshots_by_day, key=lambda x: x[1], reverse=True)
-    snapshots_by_week = sorted(snapshots_by_week, key=lambda x: x[1], reverse=True)
-    
-    #generate dict of tuples with ISO week as key and first valid tuple as value
+    for snapshot in snapshots:
+        
+        current_datetime = datetime.now(timezone.utc)
+        snapshot_datetime = datetime.fromisoformat(snapshot.creation_timestamp.replace('Z', '+00:00'))
+        
+        if (current_datetime - snapshot_datetime) <= timedelta(days=7):
+            iso_day = snapshot_datetime.isocalendar().weekday
+            snapshots_by_day.append((snapshot.name, snapshot_datetime, iso_day))
+        
+        elif (current_datetime - snapshot_datetime) > timedelta(days=7):           
+            iso_week = snapshot_datetime.isocalendar().week
+            snapshots_by_week.append((snapshot.name, snapshot_datetime, iso_week))
+
     valid_snapshots_daily = {t[2]: t for t in snapshots_by_day}
     valid_snapshots_weekly = {t[2]: t for t in snapshots_by_week}
-
-    #concatenate to array
     valid_snapshots = [t[0] for t in valid_snapshots_daily.values()] + [t[0] for t in valid_snapshots_weekly.values()]
-    
-    #if a snapshot isn't in the dict mark it for deletion
-    for snapshot in snapshots:
-        if not any(snapshot in valid_snapshots): 
-            invalid.append(snapshot)
+
+    invalid = [snapshot for snapshot in snapshots if snapshot.name not in valid_snapshots]
 
     return invalid
 

@@ -19,8 +19,8 @@ def backup_instances(zone):
             first_disk_name = first_disk_url.split('/')[-1] if first_disk_url else None
             if first_disk_url:
                 last_snapshot_date = get_last_snapshot_date(snapshots_client, first_disk_url)
-                if not last_snapshot_date or (datetime.now(timezone.utc) - last_snapshot_date) > timedelta(days=1):
-                    logging.info(f"Instance: {instance.name} >> Disk: {first_disk_name} had its last snapshot at {last_snapshot_date}.")
+                if not last_snapshot_date or (datetime.now(timezone.utc) - last_snapshot_date) > timedelta(days=0):
+                    logging.info(f"{instance.name} >> {first_disk_name} had its last snapshot at {last_snapshot_date}.")
                     creation_thread = threading.Thread(target=create_snapshot, args=(snapshots_client, zone, instance, first_disk_name, first_disk_url))
                     creation_thread.start()
                 else:
@@ -28,7 +28,7 @@ def backup_instances(zone):
             else:
                 logging.info(f"No disk attached to {instance.name} >> {first_disk_name}.")
         else:
-            logging.info(f"Instance: {instance.name} is not marked for backup.")
+            logging.info(f"{instance.name} is not marked for backup.")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

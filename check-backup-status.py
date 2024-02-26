@@ -25,7 +25,7 @@ def list_instances(zone):
         row = [instance_name, backup_status, first_disk_url.split('/')[-1] if first_disk_url != 'No disk attached' else first_disk_url, last_snapshot_date]
         table.append(row)
     
-    logging.info(f"Listing compute instances in {project_id}, {zone}:")
+    logging.info(f"Listing compute instances in {project_id} >> {zone}:")
     print(tabulate(table, headers, tablefmt="grid"))
 
 if __name__ == "__main__":

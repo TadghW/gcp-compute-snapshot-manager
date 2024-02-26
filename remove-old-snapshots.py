@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def remove_old_snapshots(zone):
     
-    logging.info("Starting backup process...")
+    logging.info("Starting backup removal process...")
     instances_client, snapshots_client = get_compute_service_clients()
     
     instances = get_instances(instances_client, zone)
@@ -18,12 +18,12 @@ def remove_old_snapshots(zone):
         if first_disk_url:
             out_of_date_snapshots = get_invalid_snapshots(snapshots_client, first_disk_url)
             if out_of_date_snapshots:
-                logging.info(f"Instance: {instance.name} >> Disk: {first_disk_name} has out of date snapshots.")
+                logging.info(f"{instance.name} >> {first_disk_name} has snapshots outside of retention policy.")
                 for snapshot in out_of_date_snapshots:
                     deletion_thread = threading.Thread(target=remove_snapshot, args=(snapshots_client, snapshot.name))
                     deletion_thread.start()
             else:
-                logging.info(f"Found no out-of-date snapshots for {instance.name} >> {first_disk_name}.")
+                logging.info(f"Found no snapshots outside retention policy for {instance.name} >> {first_disk_name}.")
         else:
             logging.info(f"No disk attached to {instance.name} >> {first_disk_name}.")
 
