@@ -27,7 +27,7 @@ def get_compute_service_clients():
 def get_instances(instances_client, zone):
     request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
     instances = instances_client.list(request=request)
-    print(f"Found {count(instances)} instances")
+    logging.info(f"Found {count(instances)} instances")
     return instances
 
 def check_snapshot_status(snapshots_client, snapshot_name):
